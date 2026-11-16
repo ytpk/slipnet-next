@@ -152,6 +152,7 @@ class SlipNetVpnService : VpnService() {
     private var cellularUnderlay: app.slipnet.network.CellularUnderlay? = null
     private var isProxyOnly = false
     private var isUserInitiatedDisconnect = false
+    private var terminalDisconnectError: String? = null
     private var currentProfileName = ""
     private var currentChainId: Long = -1
     /** Tunnel types active in the current chain (outermost first), for cleanup ordering. */
@@ -363,6 +364,7 @@ class SlipNetVpnService : VpnService() {
             currentProfileId = profileId
             currentProfileName = profile.name
             isUserInitiatedDisconnect = false
+            terminalDisconnectError = null
 
             // Log connection summary before enabling redaction so it's visible for locked profiles
             if (profile.isLocked) {
@@ -631,6 +633,7 @@ class SlipNetVpnService : VpnService() {
             currentProfileId = primaryProfile.id
             currentProfileName = chain.name
             isUserInitiatedDisconnect = false
+            terminalDisconnectError = null
 
             // Log chain summary before enabling redaction so it's visible for locked profiles
             if (profiles.any { it.isLocked }) {
@@ -758,9 +761,7 @@ class SlipNetVpnService : VpnService() {
             serviceScope.launch {
                 if (cellularUnderlay === underlay) {
                     // No automatic fallback, including when auto-reconnect is enabled.
-                    disconnect()
-                    disconnectJob?.join()
-                    connectionManager.onVpnError("Mobile network lost. Reconnect after mobile data is available.")
+                    disconnect("Mobile network lost. Reconnect after mobile data is available.")
                 }
             }
         }
@@ -5653,7 +5654,8 @@ class SlipNetVpnService : VpnService() {
         lastNotifHadSpeed = false
     }
 
-    private fun disconnect() {
+    private fun disconnect(error: String? = null) {
+        terminalDisconnectError = error
         // Mark as user-initiated so onDestroy() doesn't show disconnect notification
         isUserInitiatedDisconnect = true
 
@@ -5713,7 +5715,8 @@ class SlipNetVpnService : VpnService() {
             // Clear saved state so we don't auto-reconnect on restart
             clearConnectionState()
             cleanupConnection()
-            connectionManager.onVpnDisconnected()
+            terminalDisconnectError?.let { connectionManager.onVpnError(it) }
+                ?: connectionManager.onVpnDisconnected()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
@@ -6151,7 +6154,8 @@ class SlipNetVpnService : VpnService() {
         // cancels serviceScope before the coroutine reaches onVpnDisconnected().
         // Without this, the UI would still show "Connected" after another VPN connects.
         clearConnectionState()
-        connectionManager.onVpnDisconnected()
+        terminalDisconnectError?.let { connectionManager.onVpnError(it) }
+            ?: connectionManager.onVpnDisconnected()
 
         // Show disconnect notification if the connection was active and not user-initiated.
         // Skip if kill switch is active (it has its own notification) or if reconnecting

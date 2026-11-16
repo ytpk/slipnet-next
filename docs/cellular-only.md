@@ -2,7 +2,8 @@
 
 Это **частичная реализация**, а не поддержка всех ядер SlipNet.
 Базовая ревизия: `2ed00fd0072ad0b558e30ec6b5e8b30948f98894` (SlipNet 2.5.6).
-APK не собран; работа на реальном Android не проверена.
+ARM64 APK собирается в GitHub Actions; работа на реальном Android не проверена.
+Пакет тестовой сборки — `app.slipnet.next`, подпись — debug.
 
 ## Что реализовано
 
@@ -50,15 +51,16 @@ Private DNS — отдельная настройка Android.
 
 ## Проверки
 
-Сетевые классы скомпилированы Kotlin/JVM против Android API 36.
-Прошли 11 JUnit-тестов с Mockito и локальным mockable Android constructor adapter:
+Пройдена полная сборка `:app:assembleFullDebug` для ARM64 с Android SDK 36.
+В GitHub Actions прошли 11 JUnit-тестов с Mockito (`:app:testFullDebugUnitTest`):
 выбор мобильной сети, отмена, тайм-аут, недоступная сеть, потеря во время запуска,
 потеря после запуска, поздние callback, DNS без fallback, TCP bind до connect,
 доступ к loopback-прокси, выключенный режим.
 Это тесты логики с подменой Android API. Они не подтверждают маршрутизацию на устройстве.
 `git diff --check` также пройден.
 
-Полная Gradle-сборка не завершена. Не выдавать эти исходники за проверенный APK.
+В CI также проверяется подпись APK через `apksigner verify` и его манифест через `aapt`.
+Сборка и автоматические тесты не заменяют проверку маршрутизации на устройстве.
 
 ## Проверка на OnePlus 9RT
 
@@ -79,28 +81,24 @@ Private DNS — отдельная настройка Android.
 9. Проверить явную ошибку для неподдержанных типов и работу исходного режима
    при выключенном переключателе.
 
-## Применение патча и сборка
+## Сборка форка
 
 ```bash
-git clone https://github.com/anonvector/SlipNet.git
-cd SlipNet
-git checkout 2ed00fd0072ad0b558e30ec6b5e8b30948f98894
+git clone https://github.com/ytpk/slipnet-next.git
+cd slipnet-next
 git submodule update --init --recursive app/src/main/rust/slipstream-rust dnstt noizdns vaydns vaydns-mobile
-git apply --check /path/to/slipnet-cellular.patch
-git apply /path/to/slipnet-cellular.patch
 ```
 
-Далее следовать README SlipNet. Для этой ревизии требуются SDK 36, NDK
-29.0.14206865, Java toolchain 21 для Gradle (target bytecode 17), Rust/OpenSSL
-и соответствующие flavour-библиотеки `app/libs/golibs-full.aar` или `golibs-lite.aar`.
-В исходном checkout есть `golibs.aar`, но сборка ссылается на отдельные full/lite AAR;
-их надо подготовить через `gomobile-build/Makefile`. Это не исправляется переименованием
-старой библиотеки без проверки её API.
+Для этой ревизии требуются SDK 36, NDK 29.0.14206865, Java 21 для Gradle
+(target bytecode 17), Rust/OpenSSL и `app/libs/golibs-full.aar`.
+Библиотека собирается через `gomobile-build/Makefile`. Полная воспроизводимая
+последовательность для ARM64 находится в `.github/workflows/build.yml`.
+Архитектуру можно ограничить свойством `-PtargetAbis=arm64-v8a`;
+без свойства остаётся исходный набор из трёх архитектур.
 
 ```bash
-./gradlew :app:testLiteDebugUnitTest
-./gradlew :app:assembleLiteDebug
+./gradlew :app:testFullDebugUnitTest :app:assembleFullDebug -PtargetAbis=arm64-v8a
 ```
 
-Собранный APK будет в `app/build/outputs/apk/lite/debug/`.
-Этот пакет изменений сам по себе не содержит APK.
+APK будет в `app/build/outputs/apk/full/debug/`.
+Тестовые APK публикуются в [Releases](https://github.com/ytpk/slipnet-next/releases).
