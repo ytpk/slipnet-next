@@ -1,0 +1,62 @@
+name: APK installation check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 34]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download published build artifact
+        run: |
+          gh run download 43824064666 -n slipnet-next-arm64 -D artifact
+          original=$(find artifact -maxdepth 1 -name '*.apk' -print -quit)
+          test -n "$original"
+          expected=$(awk '{print $1}' "$original.sha256")
+          actual=$(sha256sum "$original" | cut -d ' ' -f 1)
+          test "$expected" = "$actual"
+          cp "$original" test.apk
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            mkdir -p diagnostic
+            adb shell getprop > diagnostic/device.txt
+            adb logcat -c
+            adb install --no-streaming test.apk > diagnostic/install.txt 2>&1 || { cat diagnostic/install.txt; adb logcat -d > diagnostic/logcat.txt; exit 1; }
+            cat diagnostic/install.txt
+            adb shell monkey -p app.slipnet.next -c android.intent.category.LAUNCHER 1
+            sleep 5
+            adb logcat -d > diagnostic/logcat.txt
+            adb shell pidof app.slipnet.next
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: install-diagnostic-api-${{ matrix.api }}
+          path: diagnostic/
+          if-no-files-found: ignore
