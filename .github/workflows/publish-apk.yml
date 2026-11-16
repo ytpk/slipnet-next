@@ -1,0 +1,43 @@
+name: Publish verified APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILD_RUN: '43824064666'
+      EXPECTED_SHA: 8679160e4b09351b504beff25813046b7695bbca
+      RELEASE_TAG: v2.5.6-cellular-alpha1
+      APK_NAME: SlipNet-Next-v2.5.6-cellular-alpha1-arm64-v8a.apk
+    steps:
+      - name: Verify successful source build
+        run: |
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN" > run.json
+          jq -e --arg sha "$EXPECTED_SHA" '.conclusion == "success" and .head_sha == $sha' run.json
+          gh release view "$RELEASE_TAG" --json isDraft,targetCommitish > release.json
+          jq -e --arg sha "$EXPECTED_SHA" '.isDraft == true and .targetCommitish == $sha' release.json
+      - name: Download and verify APK
+        run: |
+          gh run download "$BUILD_RUN" -n slipnet-next-arm64 -D artifact
+          original=$(find artifact -maxdepth 1 -name '*.apk' -print -quit)
+          test -n "$original"
+          expected=$(awk '{print $1}' "$original.sha256")
+          actual=$(sha256sum "$original" | cut -d ' ' -f 1)
+          test "$expected" = "$actual"
+          cp "$original" "$APK_NAME"
+          sha256sum "$APK_NAME" > "$APK_NAME.sha256"
+      - name: Upload assets and publish prerelease
+        run: |
+          gh release upload "$RELEASE_TAG" "$APK_NAME" "$APK_NAME.sha256"
+          gh release view "$RELEASE_TAG" --json assets > assets.json
+          jq -e --arg name "$APK_NAME" '.assets | length == 2 and any(.name == $name and .state == "uploaded") and any(.name == ($name + ".sha256") and .state == "uploaded")' assets.json
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease
