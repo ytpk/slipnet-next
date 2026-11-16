@@ -82,10 +82,10 @@ Private DNS — отдельная настройка Android.
 ## Применение патча и сборка
 
 ```bash
-git clone --recurse-submodules https://github.com/anonvector/SlipNet.git
+git clone https://github.com/anonvector/SlipNet.git
 cd SlipNet
 git checkout 2ed00fd0072ad0b558e30ec6b5e8b30948f98894
-git submodule update --init --recursive
+git submodule update --init --recursive app/src/main/rust/slipstream-rust dnstt noizdns vaydns vaydns-mobile
 git apply --check /path/to/slipnet-cellular.patch
 git apply /path/to/slipnet-cellular.patch
 ```

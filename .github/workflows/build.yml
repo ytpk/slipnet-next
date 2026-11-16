@@ -21,8 +21,10 @@ jobs:
       ANDROID_ABIS: arm64-v8a
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - name: Checkout build dependencies
+        run: |
+          git submodule update --init --depth 1 --recursive \
+            app/src/main/rust/slipstream-rust dnstt noizdns vaydns vaydns-mobile
       - uses: actions/setup-java@v4
         with:
           java-version: '21'
