@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import vaydns.Vaydns
 import vaydns.VaydnsClient
@@ -183,8 +185,8 @@ object VaydnsBridge {
                 c.stop()
                 if (port > 0) {
                     try {
-                        java.net.Socket().use { s ->
-                            s.connect(java.net.InetSocketAddress("127.0.0.1", port), 500)
+                        UnderlaySockets.createSocket().use { s ->
+                            s.connect(UnderlaySockets.address("127.0.0.1", port), 500)
                         }
                     } catch (_: Exception) {}
                 }
@@ -258,8 +260,8 @@ object VaydnsBridge {
 
     private fun verifySocks5Listening(host: String, port: Int): Boolean {
         return try {
-            java.net.Socket().use { socket ->
-                socket.connect(java.net.InetSocketAddress(host, port), 2000)
+            UnderlaySockets.createSocket().use { socket ->
+                socket.connect(UnderlaySockets.address(host, port), 2000)
                 true
             }
         } catch (e: Exception) {

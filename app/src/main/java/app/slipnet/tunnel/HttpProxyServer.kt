@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import java.io.BufferedOutputStream
 import java.io.InputStream
@@ -125,7 +127,7 @@ object HttpProxyServer {
         var lastException: java.net.BindException? = null
         repeat(BIND_MAX_RETRIES) { attempt ->
             try {
-                ss.bind(InetSocketAddress(host, port))
+                ss.bind(java.net.InetSocketAddress(host, port))
                 if (attempt > 0) Log.i(TAG, "Port $port bound after ${attempt + 1} attempts")
                 return ss
             } catch (e: java.net.BindException) {
@@ -439,8 +441,8 @@ object HttpProxyServer {
      * and can interfere with socket options, buffering, and relay behavior.
      */
     private fun connectViaSocks5(host: String, port: Int): Socket {
-        val socket = Socket()
-        socket.connect(InetSocketAddress(socksHost, socksPort), TCP_CONNECT_TIMEOUT_MS)
+        val socket = UnderlaySockets.createSocket()
+        socket.connect(UnderlaySockets.address(socksHost, socksPort), TCP_CONNECT_TIMEOUT_MS)
         socket.soTimeout = TCP_CONNECT_TIMEOUT_MS // timeout for handshake only
         socket.tcpNoDelay = true
 

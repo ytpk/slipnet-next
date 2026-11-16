@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import java.io.BufferedOutputStream
 import java.io.ByteArrayInputStream
@@ -246,9 +248,9 @@ object NaiveSocksBridge {
      * Create a single DNS worker: Socket → NaiveProxy SOCKS5 (NO_AUTH) → CONNECT to DNS:53.
      */
     private fun createDnsWorker(): DnsWorker? {
-        val sock = Socket()
+        val sock = UnderlaySockets.createSocket()
         try {
-            sock.connect(InetSocketAddress(naiveHost, naivePort), TCP_CONNECT_TIMEOUT_MS)
+            sock.connect(UnderlaySockets.address(naiveHost, naivePort), TCP_CONNECT_TIMEOUT_MS)
             sock.soTimeout = DNS_WORKER_TIMEOUT_MS
             sock.tcpNoDelay = true
 
@@ -430,7 +432,7 @@ object NaiveSocksBridge {
         var lastException: java.net.BindException? = null
         repeat(BIND_MAX_RETRIES) { attempt ->
             try {
-                ss.bind(InetSocketAddress(host, port))
+                ss.bind(java.net.InetSocketAddress(host, port))
                 if (attempt > 0) Log.i(TAG, "Port $port bound after ${attempt + 1} attempts")
                 return ss
             } catch (e: java.net.BindException) {
@@ -641,8 +643,8 @@ object NaiveSocksBridge {
     ) {
         val remoteSocket: Socket
         try {
-            remoteSocket = Socket()
-            remoteSocket.connect(InetSocketAddress(naiveHost, naivePort), TCP_CONNECT_TIMEOUT_MS)
+            remoteSocket = UnderlaySockets.createSocket()
+            remoteSocket.connect(UnderlaySockets.address(naiveHost, naivePort), TCP_CONNECT_TIMEOUT_MS)
             remoteSocket.tcpNoDelay = true
             // Set read timeout for the SOCKS5 handshake phase so that hung
             // reads don't permanently hold connection slots.
@@ -847,8 +849,8 @@ object NaiveSocksBridge {
     private fun forwardDnsTcpOneShot(payload: ByteArray): ByteArray? {
         var sock: Socket? = null
         try {
-            sock = Socket()
-            sock.connect(InetSocketAddress(naiveHost, naivePort), TCP_CONNECT_TIMEOUT_MS)
+            sock = UnderlaySockets.createSocket()
+            sock.connect(UnderlaySockets.address(naiveHost, naivePort), TCP_CONNECT_TIMEOUT_MS)
             sock.soTimeout = DNS_WORKER_TIMEOUT_MS
             sock.tcpNoDelay = true
 
@@ -904,8 +906,8 @@ object NaiveSocksBridge {
         var rawSocket: Socket? = null
         var sslSocket: SSLSocket? = null
         try {
-            rawSocket = Socket()
-            rawSocket.connect(InetSocketAddress(naiveHost, naivePort), TCP_CONNECT_TIMEOUT_MS)
+            rawSocket = UnderlaySockets.createSocket()
+            rawSocket.connect(UnderlaySockets.address(naiveHost, naivePort), TCP_CONNECT_TIMEOUT_MS)
             rawSocket.soTimeout = DNS_WORKER_TIMEOUT_MS
             rawSocket.tcpNoDelay = true
 

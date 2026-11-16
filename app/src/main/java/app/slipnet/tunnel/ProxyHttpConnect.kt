@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import com.jcraft.jsch.Proxy
 import com.jcraft.jsch.SocketFactory
@@ -66,8 +68,8 @@ class ProxyHttpConnect(
 
         // Step 1: TCP connect to the proxy
         val timeoutMs = if (timeout > 0) timeout else CONNECT_TIMEOUT_MS
-        val sock = Socket().apply {
-            connect(InetSocketAddress(proxyHost, proxyPort), timeoutMs)
+        val sock = UnderlaySockets.createSocket().apply {
+            connect(UnderlaySockets.address(proxyHost, proxyPort), timeoutMs)
             tcpNoDelay = true
         }
         socket = sock

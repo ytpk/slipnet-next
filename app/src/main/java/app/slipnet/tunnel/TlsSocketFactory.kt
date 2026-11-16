@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import com.jcraft.jsch.SocketFactory
 import java.io.InputStream
@@ -37,8 +39,8 @@ class TlsSocketFactory(
         Log.i(TAG, "Creating TLS socket to $host:$port (SNI: $sniHost)")
 
         // 1. Open a plain TCP socket
-        val rawSocket = Socket()
-        rawSocket.connect(InetSocketAddress(host, port), connectTimeoutMs)
+        val rawSocket = UnderlaySockets.createSocket()
+        rawSocket.connect(UnderlaySockets.address(host, port), connectTimeoutMs)
 
         // 2. Wrap in TLS with custom SNI (trust all certs for self-signed StunTLS servers)
         val sslFactory = trustAllSslFactory()

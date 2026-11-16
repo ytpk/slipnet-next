@@ -237,6 +237,18 @@ fun SettingsScreen(
             // Connection Settings
             SettingsSection(title = "Connection") {
                 SwitchSettingItem(
+                    icon = Icons.Default.SettingsEthernet,
+                    title = "Mobile data for tunnels (4G/5G)",
+                    description = "Keep Wi-Fi connected; use mobile data for tunnels and DNS. " +
+                        "Reconnect to apply. Supports Slipstream, SSH, DoH, SOCKS5 and VLESS. " +
+                        "Other engines are blocked in this mode.",
+                    checked = uiState.cellularOnly,
+                    onCheckedChange = { viewModel.setCellularOnly(it) }
+                )
+
+                SettingsDivider()
+
+                SwitchSettingItem(
                     icon = Icons.Default.PowerSettingsNew,
                     title = "Auto-connect on boot",
                     description = "Automatically connect when device starts",

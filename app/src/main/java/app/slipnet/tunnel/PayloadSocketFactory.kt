@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import com.jcraft.jsch.SocketFactory
 import java.io.InputStream
@@ -48,8 +50,8 @@ class PayloadSocketFactory(
         Log.i(TAG, "Creating socket to $host:$port (payload: ${payload.length} chars, TLS: $tlsEnabled)")
 
         // 1. Open a plain TCP socket
-        val rawSocket = Socket()
-        rawSocket.connect(InetSocketAddress(host, port), connectTimeoutMs)
+        val rawSocket = UnderlaySockets.createSocket()
+        rawSocket.connect(UnderlaySockets.address(host, port), connectTimeoutMs)
 
         // 2. Send raw payload before anything else
         val resolvedPayload = resolvePayload(payload, host, port)

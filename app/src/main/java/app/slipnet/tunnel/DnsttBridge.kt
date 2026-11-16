@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import android.net.VpnService
 import android.os.Build
 import app.slipnet.util.AppLog as Log
@@ -198,8 +200,8 @@ object DnsttBridge {
                 // the close races with an in-flight accept the goroutine can linger.
                 if (port > 0) {
                     try {
-                        java.net.Socket().use { s ->
-                            s.connect(java.net.InetSocketAddress("127.0.0.1", port), 500)
+                        UnderlaySockets.createSocket().use { s ->
+                            s.connect(UnderlaySockets.address("127.0.0.1", port), 500)
                         }
                     } catch (_: Exception) {}
                 }
@@ -290,8 +292,8 @@ object DnsttBridge {
 
     private fun verifySocks5Listening(host: String, port: Int): Boolean {
         return try {
-            java.net.Socket().use { socket ->
-                socket.connect(java.net.InetSocketAddress(host, port), 2000)
+            UnderlaySockets.createSocket().use { socket ->
+                socket.connect(UnderlaySockets.address(host, port), 2000)
                 true
             }
         } catch (e: Exception) {

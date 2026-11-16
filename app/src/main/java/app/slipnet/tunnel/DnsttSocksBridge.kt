@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import java.io.BufferedOutputStream
 import java.io.InputStream
@@ -479,9 +481,9 @@ object DnsttSocksBridge {
      * Returns a ready-to-use DnsWorker, or null on failure.
      */
     private fun createDnsWorker(): DnsWorker? {
-        val sock = Socket()
+        val sock = UnderlaySockets.createSocket()
         try {
-            sock.connect(InetSocketAddress(dnsttHost, dnsttPort), effectiveConnectTimeout)
+            sock.connect(UnderlaySockets.address(dnsttHost, dnsttPort), effectiveConnectTimeout)
             sock.soTimeout = effectiveDnsWorkerTimeout
             sock.tcpNoDelay = true
 
@@ -783,7 +785,7 @@ object DnsttSocksBridge {
         var lastException: java.net.BindException? = null
         repeat(BIND_MAX_RETRIES) { attempt ->
             try {
-                ss.bind(InetSocketAddress(host, port))
+                ss.bind(java.net.InetSocketAddress(host, port))
                 if (attempt > 0) Log.i(TAG, "Port $port bound after ${attempt + 1} attempts")
                 return ss
             } catch (e: java.net.BindException) {
@@ -951,8 +953,8 @@ object DnsttSocksBridge {
         var semaphoreReleased = false
         val remoteSocket: Socket
         try {
-            remoteSocket = Socket()
-            remoteSocket.connect(InetSocketAddress(dnsttHost, dnsttPort), effectiveConnectTimeout)
+            remoteSocket = UnderlaySockets.createSocket()
+            remoteSocket.connect(UnderlaySockets.address(dnsttHost, dnsttPort), effectiveConnectTimeout)
             remoteSocket.tcpNoDelay = true
             // Set read timeout for the SOCKS5 handshake phase so that hung
             // reads don't permanently hold a semaphore slot.
@@ -1140,8 +1142,8 @@ object DnsttSocksBridge {
     private fun forwardDnsTcpOneShot(payload: ByteArray, targetHost: String = dnsTargetHost): ByteArray? {
         var sock: Socket? = null
         try {
-            sock = Socket()
-            sock.connect(InetSocketAddress(dnsttHost, dnsttPort), effectiveConnectTimeout)
+            sock = UnderlaySockets.createSocket()
+            sock.connect(UnderlaySockets.address(dnsttHost, dnsttPort), effectiveConnectTimeout)
             sock.soTimeout = effectiveDnsWorkerTimeout
             sock.tcpNoDelay = true
 
@@ -1199,8 +1201,8 @@ object DnsttSocksBridge {
         var sslSocket: SSLSocket? = null
         try {
             // Step 1: Connect to DNSTT (loopback)
-            rawSocket = Socket()
-            rawSocket.connect(InetSocketAddress(dnsttHost, dnsttPort), effectiveConnectTimeout)
+            rawSocket = UnderlaySockets.createSocket()
+            rawSocket.connect(UnderlaySockets.address(dnsttHost, dnsttPort), effectiveConnectTimeout)
             rawSocket.soTimeout = effectiveDnsWorkerTimeout
             rawSocket.tcpNoDelay = true
 

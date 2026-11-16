@@ -28,6 +28,7 @@ data class SettingsUiState(
     val proxyAuthEnabled: Boolean = false,
     val proxyAuthUsername: String = "",
     val proxyAuthPassword: String = "",
+    val cellularOnly: Boolean = false,
     val proxyOnlyMode: Boolean = false,
     val killSwitch: Boolean = false,
     val autoReconnect: Boolean = false,
@@ -269,6 +270,8 @@ class SettingsViewModel @Inject constructor(
                     dnsPoolText = pool.second,
                     dnsPoolFullVerification = pool.third
                 )
+            }.combine(preferencesDataStore.cellularOnly) { state, cellularOnly ->
+                state.copy(cellularOnly = cellularOnly)
             }.collect { newState ->
                 // Preserve update check state across DataStore re-emissions
                 _uiState.value = newState.copy(updateCheckResult = _uiState.value.updateCheckResult)
@@ -292,6 +295,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesDataStore.setDebugLogging(enabled)
         }
+    }
+
+    fun setCellularOnly(enabled: Boolean) {
+        viewModelScope.launch { preferencesDataStore.setCellularOnly(enabled) }
     }
 
     // Proxy-Only Mode

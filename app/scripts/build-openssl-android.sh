@@ -104,10 +104,15 @@ build_openssl() {
 }
 
 # Build for each ABI
-build_openssl "arm64-v8a" "android-arm64" "aarch64"
-build_openssl "armeabi-v7a" "android-arm" "arm"
-build_openssl "x86_64" "android-x86_64" "x86_64"
-build_openssl "x86" "android-x86" "x86"
+for abi in ${ANDROID_ABIS:-arm64-v8a armeabi-v7a x86_64 x86}; do
+    case "$abi" in
+        arm64-v8a) build_openssl "$abi" "android-arm64" "aarch64" ;;
+        armeabi-v7a) build_openssl "$abi" "android-arm" "arm" ;;
+        x86_64) build_openssl "$abi" "android-x86_64" "x86_64" ;;
+        x86) build_openssl "$abi" "android-x86" "x86" ;;
+        *) echo "Unsupported ABI: $abi"; exit 1 ;;
+    esac
+done
 
 # Cleanup
 cd /

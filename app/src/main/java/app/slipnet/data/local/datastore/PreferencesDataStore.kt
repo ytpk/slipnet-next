@@ -69,6 +69,7 @@ class PreferencesDataStore @Inject constructor(
         val HTTP_PROXY_PORT = intPreferencesKey("http_proxy_port")
         val APPEND_HTTP_PROXY_TO_VPN = booleanPreferencesKey("append_http_proxy_to_vpn")
         // Proxy-Only Mode
+        val CELLULAR_ONLY = booleanPreferencesKey("cellular_only")
         val PROXY_ONLY_MODE = booleanPreferencesKey("proxy_only_mode")
         // Kill Switch
         val KILL_SWITCH = booleanPreferencesKey("kill_switch")
@@ -558,6 +559,12 @@ class PreferencesDataStore @Inject constructor(
     }
 
     // Proxy-Only Mode
+    val cellularOnly: Flow<Boolean> = dataStore.data.map { it[Keys.CELLULAR_ONLY] ?: false }
+
+    suspend fun setCellularOnly(enabled: Boolean) {
+        dataStore.edit { it[Keys.CELLULAR_ONLY] = enabled }
+    }
+
     val proxyOnlyMode: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[Keys.PROXY_ONLY_MODE] ?: false
     }

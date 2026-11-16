@@ -14,8 +14,8 @@ plugins {
 }
 
 val minSdkVersion = 24
-val appVersionName = "2.5.6"
-val appVersionCode = 81
+val appVersionName = "2.5.6-cellular-alpha1"
+val appVersionCode = 82
 val cargoProfile = (findProperty("CARGO_PROFILE") as String?) ?: run {
     val isRelease = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
     if (isRelease) "release" else "debug"
@@ -47,7 +47,11 @@ val configEncryptionKey = localProperties.getProperty("CONFIG_ENCRYPTION_KEY", "
 // OpenSSL configuration
 val opensslVersion = "3.0.15"
 val opensslBaseDir = file("${System.getenv("HOME")}/android-openssl/android-ssl")
-val supportedAbis = listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+val supportedAbis = (findProperty("targetAbis") as String?)?.split(",")
+    ?: listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+require(supportedAbis.isNotEmpty() && supportedAbis.all { it in setOf("arm64-v8a", "armeabi-v7a", "x86_64") }) {
+    "targetAbis must contain supported Android ABIs"
+}
 
 // Check if OpenSSL is available for all ABIs
 fun isOpenSslAvailable(): Boolean {
@@ -81,7 +85,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "app.slipnet"
+        applicationId = "app.slipnet.next"
         minSdk = minSdkVersion
         targetSdk = 35
         versionCode = appVersionCode
@@ -116,6 +120,10 @@ android {
         }
     }
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -134,7 +142,7 @@ android {
         abi {
             isEnable = true
             reset()
-            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            include(*supportedAbis.toTypedArray())
             isUniversalApk = true
         }
     }
@@ -309,7 +317,9 @@ cargo {
     rustcCommand = "$cargoBin/rustc"
     module = "src/main/rust/slipstream-rust"
     libname = "slipstream"
-    targets = listOf("arm", "arm64", "x86_64")
+    targets = supportedAbis.map { abi ->
+        when (abi) { "arm64-v8a" -> "arm64"; "armeabi-v7a" -> "arm"; else -> "x86_64" }
+    }
     profile = cargoProfile
     rustupChannel = "stable"
     extraCargoBuildArguments = listOf(
@@ -478,6 +488,7 @@ dependencies {
 
     // Testing
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.mockito:mockito-core:5.16.0")
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")

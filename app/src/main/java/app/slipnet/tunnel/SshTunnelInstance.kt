@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import app.slipnet.domain.model.SshAuthType
 import com.jcraft.jsch.ChannelDirectTCPIP
@@ -168,9 +170,25 @@ class SshTunnelInstance(val instanceId: String = "default") {
         Log.i(TAG, "Configured: cipher=${cipher ?: "auto"}, compression=$compression, maxChannels=$configMaxChannels")
     }
 
-    /**
-     * Apply cipher and compression settings to a JSch session.
-     */
+    private fun applyCellularSocketFactory(session: Session) {
+        if (!app.slipnet.network.CellularSocketBinding.isEnabled) return
+        session.setSocketFactory(object : com.jcraft.jsch.SocketFactory {
+            override fun createSocket(host: String, port: Int): Socket {
+                val socket = UnderlaySockets.createSocket()
+                try {
+                    socket.connect(UnderlaySockets.address(host, port), CONNECT_TIMEOUT_MS)
+                    return socket
+                } catch (e: Exception) {
+                    socket.close()
+                    throw e
+                }
+            }
+            override fun getInputStream(socket: Socket) = socket.getInputStream()
+            override fun getOutputStream(socket: Socket) = socket.getOutputStream()
+        })
+    }
+
+    /** Apply cipher and compression settings to a JSch session. */
     private fun applySessionConfig(session: Session) {
         session.setConfig("StrictHostKeyChecking", "no")
         session.setServerAliveInterval(KEEPALIVE_INTERVAL_MS)
@@ -254,6 +272,7 @@ class SshTunnelInstance(val instanceId: String = "default") {
                 )
             }
             val newSession = jsch.getSession(sshUsername, tunnelHost, tunnelPort)
+            applyCellularSocketFactory(newSession)
             if (sshAuthType == SshAuthType.KEY) {
                 newSession.setConfig("PreferredAuthentications", "publickey")
             } else {
@@ -351,6 +370,7 @@ class SshTunnelInstance(val instanceId: String = "default") {
             }
             // Create session targeting the real SSH server
             val newSession = jsch.getSession(sshUsername, sshHost, sshPort)
+            applyCellularSocketFactory(newSession)
             if (sshAuthType == SshAuthType.KEY) {
                 newSession.setConfig("PreferredAuthentications", "publickey")
             } else {
@@ -445,6 +465,7 @@ class SshTunnelInstance(val instanceId: String = "default") {
                 )
             }
             val newSession = jsch.getSession(sshUsername, sshHost, sshPort)
+            applyCellularSocketFactory(newSession)
             if (sshAuthType == SshAuthType.KEY) {
                 newSession.setConfig("PreferredAuthentications", "publickey")
             } else {
@@ -549,6 +570,7 @@ class SshTunnelInstance(val instanceId: String = "default") {
             // Connect directly to the tunnel's local port. The tunnel (DNSTT/Slipstream)
             // forwards raw TCP to the SSH server. No SOCKS5 handshake is needed.
             val newSession = jsch.getSession(sshUsername, proxyHost, proxyPort)
+            applyCellularSocketFactory(newSession)
             if (sshAuthType == SshAuthType.KEY) {
                 newSession.setConfig("PreferredAuthentications", "publickey")
             } else {
@@ -648,6 +670,7 @@ class SshTunnelInstance(val instanceId: String = "default") {
             }
             // Create session targeting the real SSH server
             val newSession = jsch.getSession(sshUsername, sshHost, sshPort)
+            applyCellularSocketFactory(newSession)
             if (sshAuthType == SshAuthType.KEY) {
                 newSession.setConfig("PreferredAuthentications", "publickey")
             } else {
@@ -992,7 +1015,7 @@ class SshTunnelInstance(val instanceId: String = "default") {
         var lastException: java.net.BindException? = null
         repeat(BIND_MAX_RETRIES) { attempt ->
             try {
-                ss.bind(InetSocketAddress(host, port))
+                ss.bind(java.net.InetSocketAddress(host, port))
                 if (attempt > 0) Log.i(TAG, "Port $port bound after ${attempt + 1} attempts")
                 return ss
             } catch (e: java.net.BindException) {
@@ -1473,11 +1496,11 @@ class SshTunnelInstance(val instanceId: String = "default") {
      * Used in DNSTT+SSH mode where the app is excluded from VPN routing.
      */
     private fun forwardDnsDirect(host: String, payload: ByteArray): ByteArray? {
-        val socket = DatagramSocket()
+        val socket = UnderlaySockets.datagram()
         try {
             socket.soTimeout = 5000 // 5s timeout for DNS
 
-            val address = InetAddress.getByName(host)
+            val address = UnderlaySockets.resolve(host)
             val request = DatagramPacket(payload, payload.size, address, 53)
             socket.send(request)
 

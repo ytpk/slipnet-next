@@ -149,6 +149,7 @@ class SlipNetVpnService : VpnService() {
     private var resetZeroThroughputCounter = false
     @Volatile
     private var isKillSwitchActive = false
+    private var cellularUnderlay: app.slipnet.network.CellularUnderlay? = null
     private var isProxyOnly = false
     private var isUserInitiatedDisconnect = false
     private var currentProfileName = ""
@@ -436,6 +437,7 @@ class SlipNetVpnService : VpnService() {
 
             try {
                 // Read proxy-only mode setting
+                prepareCellularUnderlay(listOf(profile.tunnelType))
                 isProxyOnly = preferencesDataStore.proxyOnlyMode.first()
 
                 // Set debug logging on tunnel bridges
@@ -673,6 +675,7 @@ class SlipNetVpnService : VpnService() {
             }
 
             try {
+                prepareCellularUnderlay(profiles.map { it.tunnelType })
                 isProxyOnly = preferencesDataStore.proxyOnlyMode.first()
                 val debug = preferencesDataStore.debugLogging.first()
                 SshTunnelBridge.debugLogging = debug
@@ -730,6 +733,35 @@ class SlipNetVpnService : VpnService() {
                 cleanupConnection()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
+            }
+        }
+    }
+
+    /** Apply before any bootstrap DNS queries, pool scans or tunnel startup. */
+    private suspend fun prepareCellularUnderlay(types: List<TunnelType>) {
+        cellularUnderlay?.release()
+        cellularUnderlay = null
+        if (!preferencesDataStore.cellularOnly.first()) return
+        // Go raw-syscall sockets and exec'ed engines need their own per-socket
+        // integration. Refuse these engines rather than leak over Wi-Fi.
+        val supported = setOf(TunnelType.SLIPSTREAM, TunnelType.SLIPSTREAM_SSH,
+            TunnelType.SSH, TunnelType.DOH, TunnelType.SOCKS5, TunnelType.VLESS)
+        val unsupported = types.firstOrNull { it !in supported }
+        require(unsupported == null) {
+            "Mobile-only routing is not implemented for ${unsupported?.displayName}. " +
+                "Use Slipstream, SSH, DoH, SOCKS5 or VLESS, or disable mobile-only mode."
+        }
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val underlay = app.slipnet.network.CellularUnderlay(cm)
+        cellularUnderlay = underlay
+        underlay.acquire {
+            serviceScope.launch {
+                if (cellularUnderlay === underlay) {
+                    // No automatic fallback, including when auto-reconnect is enabled.
+                    disconnect()
+                    disconnectJob?.join()
+                    connectionManager.onVpnError("Mobile network lost. Reconnect after mobile data is available.")
+                }
             }
         }
     }
@@ -4126,6 +4158,11 @@ class SlipNetVpnService : VpnService() {
     @Suppress("DEPRECATION")
     private fun updateUnderlyingNetworks() {
         try {
+            cellularUnderlay?.let { underlay ->
+                // An empty array means no underlay; null restores automatic selection.
+                setUnderlyingNetworks(underlay.network?.let { arrayOf(it) } ?: emptyArray())
+                return
+            }
             val cm = connectivityManager ?: return
             val networks = cm.allNetworks
                 .mapNotNull { network ->
@@ -4207,6 +4244,8 @@ class SlipNetVpnService : VpnService() {
      */
     private fun registerNetworkCallback() {
         unregisterNetworkCallback() // Clean up any existing callback
+        // Wi-Fi changes must not restart a session pinned to cellular.
+        if (cellularUnderlay != null) return
 
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -6022,6 +6061,9 @@ class SlipNetVpnService : VpnService() {
             Log.w(TAG, "Cleanup timed out after 8s — bridge may be stuck, proceeding with disconnect")
         }
 
+        cellularUnderlay?.release()
+        cellularUnderlay = null
+
         // Clear VPN service reference AFTER native code has stopped (or timed out).
         // Must come after stopCurrentProxy() to avoid crashing native protectSocket() calls.
         clearVpnServiceRef()
@@ -6184,6 +6226,9 @@ class SlipNetVpnService : VpnService() {
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping proxy", e)
         }
+
+        cellularUnderlay?.release()
+        cellularUnderlay = null
 
         // Clear VPN service reference
         clearVpnServiceRef()

@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import android.os.ParcelFileDescriptor
 import app.slipnet.util.AppLog as Log
 import kotlinx.coroutines.*
@@ -467,7 +469,7 @@ class KotlinTunnelManager(
         val vpnProtect: ((DatagramSocket) -> Boolean)?,
         val onPacketReceived: (InetAddress, Int, ByteArray) -> Unit
     ) {
-        private val socket = DatagramSocket()
+        private val socket = UnderlaySockets.datagram()
         private var receiverJob: Job? = null
         private val isClosed = AtomicBoolean(false)
 
@@ -534,7 +536,7 @@ class KotlinTunnelManager(
     private suspend fun forwardDnsQuery(query: ByteArray, dnsServer: String, port: Int): ByteArray? {
         return withContext(Dispatchers.IO) {
             try {
-                val socket = java.net.DatagramSocket()
+                val socket = UnderlaySockets.datagram()
                 // Protect the socket so it doesn't go through VPN
                 val protected = vpnProtect?.invoke(socket)
                 if (protected == false) {
@@ -548,7 +550,7 @@ class KotlinTunnelManager(
 
                 socket.soTimeout = config.dnsTimeout
 
-                val serverAddr = java.net.InetAddress.getByName(dnsServer)
+                val serverAddr = UnderlaySockets.resolve(dnsServer)
                 if (verboseLogging) Log.d(TAG, "Sending DNS query (${query.size} bytes) to $dnsServer:$port")
                 val requestPacket = java.net.DatagramPacket(query, query.size, serverAddr, port)
                 socket.send(requestPacket)
@@ -580,9 +582,9 @@ class KotlinTunnelManager(
         return withContext(Dispatchers.IO) {
             var socket: Socket? = null
             try {
-                socket = Socket()
+                socket = UnderlaySockets.createSocket()
                 socket.soTimeout = config.dnsTimeout
-                socket.connect(InetSocketAddress(host, port), config.dnsTimeout)
+                socket.connect(UnderlaySockets.address(host, port), config.dnsTimeout)
 
                 val output = socket.getOutputStream()
                 val input = socket.getInputStream()
@@ -1386,13 +1388,13 @@ class Socks5ConnectionPool(
         if (!isRunning.get()) return
 
         try {
-            val socket = Socket()
+            val socket = UnderlaySockets.createSocket()
             socket.tcpNoDelay = true
             socket.keepAlive = true
             socket.sendBufferSize = bufferSize
             socket.receiveBufferSize = bufferSize
 
-            socket.connect(InetSocketAddress("127.0.0.1", slipstreamPort), connectionTimeout / 3)
+            socket.connect(UnderlaySockets.address("127.0.0.1", slipstreamPort), connectionTimeout / 3)
 
             val conn = PooledSocket(socket)
             if (!pool.offer(conn)) {
@@ -1442,7 +1444,7 @@ class Socks5ConnectionPool(
             if (verboseLogging) Log.i(TAG, "[$streamId] SOCKS5: Connecting to slipstream at 127.0.0.1:$slipstreamPort")
         }
 
-        val socket = Socket()
+        val socket = UnderlaySockets.createSocket()
         socket.tcpNoDelay = true
         socket.keepAlive = true
         socket.sendBufferSize = bufferSize
@@ -1450,7 +1452,7 @@ class Socks5ConnectionPool(
 
         try {
             withContext(Dispatchers.IO) {
-                socket.connect(InetSocketAddress("127.0.0.1", slipstreamPort), connectionTimeout / 2)
+                socket.connect(UnderlaySockets.address("127.0.0.1", slipstreamPort), connectionTimeout / 2)
             }
         } catch (e: Exception) {
             Log.e(TAG, "[$streamId] SOCKS5: Failed to connect to slipstream: ${e.message}")

@@ -5,6 +5,7 @@
 # -trimpath does not cover. Building through a fixed path makes the AARs
 # independent of where the repository is checked out.
 BUILD_ROOT := /tmp/slipnet-gomobile
+GOMOBILE_TARGET ?= android/arm,android/arm64,android/amd64
 
 # Default: build both
 build: build-full build-lite
@@ -13,7 +14,7 @@ stage:
 	ln -sfn "$(abspath ..)" $(BUILD_ROOT)
 
 build-full: stage
-	cd $(BUILD_ROOT)/gomobile-build && gomobile bind -trimpath -target android/arm,android/arm64,android/amd64 -androidapi 21 \
+	cd $(BUILD_ROOT)/gomobile-build && gomobile bind -trimpath -target $(GOMOBILE_TARGET) -androidapi 21 \
 		-ldflags '-s -w -checklinkname=0 -extldflags -Wl,-z,max-page-size=16384,-z,common-page-size=16384' \
 		-o ../app/libs/golibs-full.aar \
 		noizdns/mobile \
@@ -22,7 +23,7 @@ build-full: stage
 		snowflake-mobile/snowflake
 
 build-lite: stage
-	cd $(BUILD_ROOT)/gomobile-build && gomobile bind -trimpath -target android/arm,android/arm64,android/amd64 -androidapi 21 \
+	cd $(BUILD_ROOT)/gomobile-build && gomobile bind -trimpath -target $(GOMOBILE_TARGET) -androidapi 21 \
 		-ldflags '-s -w -checklinkname=0 -extldflags -Wl,-z,max-page-size=16384,-z,common-page-size=16384' \
 		-o ../app/libs/golibs-lite.aar \
 		noizdns/mobile \

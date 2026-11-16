@@ -1,5 +1,7 @@
 package app.slipnet.data.native
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import app.slipnet.domain.model.ConnectionState
 import app.slipnet.domain.model.TrafficStats
@@ -61,7 +63,7 @@ object NativeBridge : NativeCallback {
             return false
         }
 
-        val result = service.protect(fd)
+        val result = service.protect(fd) && app.slipnet.network.CellularSocketBinding.bind(fd)
         Log.d(TAG, "Protected socket fd=$fd, result=$result")
         return result
     }
@@ -79,7 +81,10 @@ object NativeBridge : NativeCallback {
         return try {
             val result = nativeStartTunnel(
                 domain = config.domain,
-                resolverHosts = config.resolvers.map { it.host }.toTypedArray(),
+                resolverHosts = config.resolvers.map {
+                    if (app.slipnet.network.CellularSocketBinding.isEnabled)
+                        UnderlaySockets.resolve(it.host).hostAddress!! else it.host
+                }.toTypedArray(),
                 resolverPorts = config.resolvers.map { it.port }.toIntArray(),
                 resolverAuthoritative = config.resolvers.map { it.authoritative }.toBooleanArray(),
                 keepAliveInterval = config.keepAliveInterval,

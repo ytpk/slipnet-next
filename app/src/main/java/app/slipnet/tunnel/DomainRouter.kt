@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import android.content.Context
 import app.slipnet.util.AppLog as Log
 import app.slipnet.data.local.datastore.DomainRoutingMode
@@ -202,8 +204,8 @@ class DomainRouter(
      * automatically goes direct without needing protect().
      */
     fun createDirectConnection(host: String, port: Int, timeoutMs: Int = DIRECT_CONNECT_TIMEOUT_MS): Socket {
-        val socket = Socket()
-        socket.connect(InetSocketAddress(host, port), timeoutMs)
+        val socket = UnderlaySockets.createSocket()
+        socket.connect(UnderlaySockets.address(host, port), timeoutMs)
         socket.tcpNoDelay = true
         Log.d(TAG, "Direct connection to $host:$port established")
         return socket

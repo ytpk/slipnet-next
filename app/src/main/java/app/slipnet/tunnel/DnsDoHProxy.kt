@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -60,7 +62,7 @@ object DnsDoHProxy {
 
         this.dohUrl = dohUrl
 
-        httpClient = OkHttpClient.Builder()
+        httpClient = OkHttpClient.Builder().socketFactory(app.slipnet.network.UnderlaySockets)
             .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(5, TimeUnit.SECONDS)
@@ -69,10 +71,10 @@ object DnsDoHProxy {
             .dns(object : Dns {
                 override fun lookup(hostname: String): List<InetAddress> {
                     val preResolved = serverIpMap[hostname]?.mapNotNull { ip ->
-                        try { InetAddress.getByName(ip) } catch (_: Exception) { null }
+                        try { UnderlaySockets.resolve(ip) } catch (_: Exception) { null }
                     } ?: emptyList()
                     val systemResolved = try {
-                        Dns.SYSTEM.lookup(hostname)
+                        UnderlaySockets.resolveAll(hostname).toList()
                     } catch (_: Exception) { emptyList() }
                     val combined = (preResolved + systemResolved).distinctBy { it.hostAddress }
                     if (combined.isNotEmpty()) return combined
@@ -89,7 +91,7 @@ object DnsDoHProxy {
         executor = pool
 
         return try {
-            val ds = DatagramSocket(0, InetAddress.getByName("127.0.0.1"))
+            val ds = DatagramSocket(0, UnderlaySockets.resolve("127.0.0.1"))
             socket = ds
             val port = ds.localPort
             running.set(true)

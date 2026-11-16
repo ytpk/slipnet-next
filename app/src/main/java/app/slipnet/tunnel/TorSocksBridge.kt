@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import java.io.BufferedOutputStream
 import java.io.ByteArrayInputStream
@@ -145,7 +147,7 @@ object TorSocksBridge {
         var lastException: java.net.BindException? = null
         repeat(BIND_MAX_RETRIES) { attempt ->
             try {
-                ss.bind(InetSocketAddress(host, port))
+                ss.bind(java.net.InetSocketAddress(host, port))
                 if (attempt > 0) Log.i(TAG, "Port $port bound after ${attempt + 1} attempts")
                 return ss
             } catch (e: java.net.BindException) {
@@ -364,8 +366,8 @@ object TorSocksBridge {
     ) {
         val remoteSocket: Socket
         try {
-            remoteSocket = Socket()
-            remoteSocket.connect(InetSocketAddress(torHost, torSocksPort), TCP_CONNECT_TIMEOUT_MS)
+            remoteSocket = UnderlaySockets.createSocket()
+            remoteSocket.connect(UnderlaySockets.address(torHost, torSocksPort), TCP_CONNECT_TIMEOUT_MS)
             remoteSocket.tcpNoDelay = true
         } catch (e: Exception) {
             logd("CONNECT: failed to connect to Tor SOCKS5: ${e.message}")
@@ -602,8 +604,8 @@ object TorSocksBridge {
         var socket: Socket? = null
         try {
             // Connect to Tor SOCKS5
-            socket = Socket()
-            socket.connect(InetSocketAddress(torHost, torSocksPort), DNS_TIMEOUT_MS)
+            socket = UnderlaySockets.createSocket()
+            socket.connect(UnderlaySockets.address(torHost, torSocksPort), DNS_TIMEOUT_MS)
             socket.soTimeout = DNS_TIMEOUT_MS
             socket.tcpNoDelay = true
 

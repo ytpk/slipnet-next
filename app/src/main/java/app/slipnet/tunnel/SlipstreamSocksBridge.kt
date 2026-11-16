@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import java.io.BufferedOutputStream
 import java.io.ByteArrayInputStream
@@ -388,9 +390,9 @@ object SlipstreamSocksBridge {
      * Returns a ready-to-use DnsWorker, or null on failure.
      */
     private fun createDnsWorker(): DnsWorker? {
-        val sock = Socket()
+        val sock = UnderlaySockets.createSocket()
         try {
-            sock.connect(InetSocketAddress(slipstreamHost, slipstreamPort), TCP_CONNECT_TIMEOUT_MS)
+            sock.connect(UnderlaySockets.address(slipstreamHost, slipstreamPort), TCP_CONNECT_TIMEOUT_MS)
             sock.soTimeout = DNS_WORKER_TIMEOUT_MS
             sock.tcpNoDelay = true
 
@@ -651,7 +653,7 @@ object SlipstreamSocksBridge {
         var lastException: java.net.BindException? = null
         repeat(BIND_MAX_RETRIES) { attempt ->
             try {
-                ss.bind(InetSocketAddress(host, port))
+                ss.bind(java.net.InetSocketAddress(host, port))
                 if (attempt > 0) Log.i(TAG, "Port $port bound after ${attempt + 1} attempts")
                 return ss
             } catch (e: java.net.BindException) {
@@ -923,8 +925,8 @@ object SlipstreamSocksBridge {
         var semaphoreReleased = false
         val remoteSocket: Socket
         try {
-            remoteSocket = Socket()
-            remoteSocket.connect(InetSocketAddress(slipstreamHost, slipstreamPort), TCP_CONNECT_TIMEOUT_MS)
+            remoteSocket = UnderlaySockets.createSocket()
+            remoteSocket.connect(UnderlaySockets.address(slipstreamHost, slipstreamPort), TCP_CONNECT_TIMEOUT_MS)
             remoteSocket.tcpNoDelay = true
             // Set read timeout for the SOCKS5 handshake phase so that hung
             // reads (e.g. QUIC transport died but localhost TCP stays open)
@@ -1187,8 +1189,8 @@ object SlipstreamSocksBridge {
     private fun forwardDnsTcpOneShot(payload: ByteArray): ByteArray? {
         var sock: Socket? = null
         try {
-            sock = Socket()
-            sock.connect(InetSocketAddress(slipstreamHost, slipstreamPort), TCP_CONNECT_TIMEOUT_MS)
+            sock = UnderlaySockets.createSocket()
+            sock.connect(UnderlaySockets.address(slipstreamHost, slipstreamPort), TCP_CONNECT_TIMEOUT_MS)
             sock.soTimeout = DNS_WORKER_TIMEOUT_MS
             sock.tcpNoDelay = true
 
@@ -1254,8 +1256,8 @@ object SlipstreamSocksBridge {
         var sslSocket: SSLSocket? = null
         try {
             // Step 1: Connect to Slipstream (loopback)
-            rawSocket = Socket()
-            rawSocket.connect(InetSocketAddress(slipstreamHost, slipstreamPort), TCP_CONNECT_TIMEOUT_MS)
+            rawSocket = UnderlaySockets.createSocket()
+            rawSocket.connect(UnderlaySockets.address(slipstreamHost, slipstreamPort), TCP_CONNECT_TIMEOUT_MS)
             rawSocket.soTimeout = DNS_WORKER_TIMEOUT_MS
             rawSocket.tcpNoDelay = true
 

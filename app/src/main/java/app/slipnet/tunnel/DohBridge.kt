@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import java.io.BufferedOutputStream
 import java.io.ByteArrayInputStream
@@ -226,7 +228,7 @@ object DohBridge {
      * - Custom DNS resolver with pre-resolved IPs for known DoH servers
      */
     internal fun createHttpClient(): OkHttpClient {
-        val builder = OkHttpClient.Builder()
+        val builder = OkHttpClient.Builder().socketFactory(app.slipnet.network.UnderlaySockets)
             .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(5, TimeUnit.SECONDS)
@@ -241,7 +243,7 @@ object DohBridge {
             override fun lookup(hostname: String): List<InetAddress> {
                 // Pre-resolved IPs (fast, bypass ISP DNS)
                 val preResolved = serverIpMap[hostname]?.mapNotNull { ip ->
-                    try { InetAddress.getByName(ip) } catch (_: Exception) { null }
+                    try { UnderlaySockets.resolve(ip) } catch (_: Exception) { null }
                 } ?: emptyList()
 
                 if (upstream != null) {
@@ -255,7 +257,7 @@ object DohBridge {
 
                 // System DNS as fallback (handles stale/outdated pre-resolved IPs)
                 val systemResolved = try {
-                    Dns.SYSTEM.lookup(hostname)
+                    UnderlaySockets.resolveAll(hostname).toList()
                 } catch (_: Exception) { emptyList() }
 
                 // Combine: pre-resolved first, then system DNS (deduplicated)
@@ -383,7 +385,7 @@ object DohBridge {
         var lastException: java.net.BindException? = null
         repeat(BIND_MAX_RETRIES) { attempt ->
             try {
-                ss.bind(InetSocketAddress(host, port))
+                ss.bind(java.net.InetSocketAddress(host, port))
                 if (attempt > 0) Log.i(TAG, "Port $port bound after ${attempt + 1} attempts")
                 return ss
             } catch (e: java.net.BindException) {
@@ -593,9 +595,9 @@ object DohBridge {
                 remoteSocket = dialThroughSocks5(upstream, destHost, destPort)
                 logd("CONNECT: $destHost:$destPort via SOCKS5 $upstream")
             } else {
-                remoteSocket = Socket()
+                remoteSocket = UnderlaySockets.createSocket()
                 // Resolve domain names via DoH so DNS doesn't leak to system/ISP resolver.
-                // SlipNet's process is excluded from VPN, so InetSocketAddress(hostname)
+                // SlipNet's process is excluded from VPN; resolve on the selected underlay
                 // would resolve via ISP DNS — defeating the purpose of DoH mode.
                 val connectHost = if (DomainRouter.isIpAddress(destHost)) {
                     destHost
@@ -605,7 +607,7 @@ object DohBridge {
                         else Log.w(TAG, "CONNECT: DoH resolution failed for $destHost, falling back to system DNS")
                     } ?: destHost
                 }
-                remoteSocket.connect(InetSocketAddress(connectHost, destPort), TCP_CONNECT_TIMEOUT_MS)
+                remoteSocket.connect(UnderlaySockets.address(connectHost, destPort), TCP_CONNECT_TIMEOUT_MS)
             }
         } catch (e: Exception) {
             logd("CONNECT: failed to connect to $destHost:$destPort: ${e.message}")
@@ -814,7 +816,7 @@ object DohBridge {
      * upstream (e.g. Tor) resolves the name through its own circuit.
      */
     private fun dialThroughSocks5(upstream: InetSocketAddress, destHost: String, destPort: Int): Socket {
-        val socket = Socket()
+        val socket = UnderlaySockets.createSocket()
         try {
             socket.connect(upstream, TCP_CONNECT_TIMEOUT_MS)
             socket.soTimeout = TCP_CONNECT_TIMEOUT_MS
@@ -841,7 +843,7 @@ object DohBridge {
                 }
                 destHost.contains(":") -> {
                     // IPv6 literal — parse via InetAddress (no DNS since it's a literal).
-                    val addr = InetAddress.getByName(destHost).address
+                    val addr = UnderlaySockets.resolve(destHost).address
                     byteArrayOf(0x05, 0x01, 0x00, 0x04) + addr + byteArrayOf(portHi, portLo)
                 }
                 else -> {
@@ -887,10 +889,10 @@ object DohBridge {
      * Forward non-DNS UDP directly via DatagramSocket.
      */
     private fun forwardUdpDirect(host: String, port: Int, payload: ByteArray): ByteArray? {
-        val socket = DatagramSocket()
+        val socket = UnderlaySockets.datagram()
         try {
             socket.soTimeout = 5000
-            val address = InetAddress.getByName(host)
+            val address = UnderlaySockets.resolve(host)
             val request = DatagramPacket(payload, payload.size, address, port)
             socket.send(request)
 

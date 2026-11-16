@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -278,9 +280,9 @@ object DnsResolverProber {
         var socket: DatagramSocket? = null
         return try {
             val query = buildDnsQuery(qname, rrType)
-            socket = DatagramSocket()
+            socket = UnderlaySockets.datagram()
             socket.soTimeout = timeoutMs.coerceIn(500, 5000)
-            val addr = InetAddress.getByName(host)
+            val addr = UnderlaySockets.resolve(host)
             socket.send(DatagramPacket(query, query.size, addr, port))
             val buf = ByteArray(1500)
             val pkt = DatagramPacket(buf, buf.size)

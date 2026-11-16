@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import android.content.Context
 import app.slipnet.util.AppLog as Log
 import java.io.BufferedReader
@@ -81,7 +83,7 @@ object NaiveBridge {
             // even on IPv4-only networks, causing Chromium to fail with
             // "Not a numeric address" when parsing the unbracketed IPv6 literal.
             val resolvedIp = try {
-                val allAddrs = InetAddress.getAllByName(serverHost)
+                val allAddrs = UnderlaySockets.resolveAll(serverHost)
                 val ipv4 = allAddrs.firstOrNull { it is Inet4Address }
                 val chosen = ipv4 ?: allAddrs.firstOrNull()
                     ?: throw RuntimeException("No addresses found for '$serverHost'")

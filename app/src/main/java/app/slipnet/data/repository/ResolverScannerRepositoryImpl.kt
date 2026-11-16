@@ -1,5 +1,7 @@
 package app.slipnet.data.repository
 
+import app.slipnet.network.UnderlaySockets
+
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
@@ -1911,8 +1913,8 @@ class ResolverScannerRepositoryImpl @Inject constructor(
         var sock: Socket? = null
         return try {
             val warmupTimeout = timeoutMs.toInt().coerceAtLeast(1)
-            sock = Socket()
-            sock.connect(java.net.InetSocketAddress("127.0.0.1", dnsttPort), warmupTimeout)
+            sock = UnderlaySockets.createSocket()
+            sock.connect(UnderlaySockets.address("127.0.0.1", dnsttPort), warmupTimeout)
             sock.soTimeout = warmupTimeout
 
             // Read SSH banner (e.g. "SSH-2.0-OpenSSH_8.9").
@@ -1985,8 +1987,8 @@ class ResolverScannerRepositoryImpl @Inject constructor(
         var sock: Socket? = null
         return try {
             val warmupTimeout = timeoutMs.toInt().coerceAtLeast(1)
-            sock = Socket()
-            sock.connect(java.net.InetSocketAddress("127.0.0.1", dnsttPort), warmupTimeout)
+            sock = UnderlaySockets.createSocket()
+            sock.connect(UnderlaySockets.address("127.0.0.1", dnsttPort), warmupTimeout)
             sock.soTimeout = warmupTimeout
             val input = sock.getInputStream()
             val output = sock.getOutputStream()
@@ -2040,8 +2042,8 @@ class ResolverScannerRepositoryImpl @Inject constructor(
     private fun waitForPortListening(port: Int, maxAttempts: Int = 40, delayMs: Long = 75): Boolean {
         repeat(maxAttempts) {
             try {
-                Socket().use { socket ->
-                    socket.connect(java.net.InetSocketAddress("127.0.0.1", port), 150)
+                UnderlaySockets.createSocket().use { socket ->
+                    socket.connect(UnderlaySockets.address("127.0.0.1", port), 150)
                     return true
                 }
             } catch (_: Exception) {
@@ -2130,8 +2132,8 @@ class ResolverScannerRepositoryImpl @Inject constructor(
             val port = if (url.port != -1) url.port else if (url.protocol == "https") 443 else 80
             val path = if (url.path.isNullOrBlank()) "/" else url.path
 
-            socket = Socket()
-            socket.connect(java.net.InetSocketAddress("127.0.0.1", localPort), socketTimeout)
+            socket = UnderlaySockets.createSocket()
+            socket.connect(UnderlaySockets.address("127.0.0.1", localPort), socketTimeout)
             socket.soTimeout = socketTimeout
 
             val input = socket.getInputStream()
@@ -2343,9 +2345,9 @@ class ResolverScannerRepositoryImpl @Inject constructor(
     ): Pair<ByteArray, Int>? {
         var socket: DatagramSocket? = null
         return try {
-            socket = DatagramSocket()
+            socket = UnderlaySockets.datagram()
             socket.soTimeout = timeoutMs.toInt().coerceIn(500, 30000)
-            val serverAddress = InetAddress.getByName(host)
+            val serverAddress = UnderlaySockets.resolve(host)
             socket.send(DatagramPacket(query, query.size, serverAddress, port))
             val buf = ByteArray(bufferSize)
             val pkt = DatagramPacket(buf, buf.size)
@@ -2371,9 +2373,9 @@ class ResolverScannerRepositoryImpl @Inject constructor(
     ): Pair<ByteArray, Int>? {
         var socket: Socket? = null
         return try {
-            socket = Socket()
+            socket = UnderlaySockets.createSocket()
             val tm = timeoutMs.toInt().coerceIn(500, 30000)
-            socket.connect(java.net.InetSocketAddress(host, port), tm)
+            socket.connect(UnderlaySockets.address(host, port), tm)
             socket.soTimeout = tm
 
             val out = socket.getOutputStream()

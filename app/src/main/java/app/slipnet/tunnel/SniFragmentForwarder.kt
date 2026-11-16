@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -156,8 +158,8 @@ class SniFragmentForwarder(private val instanceId: String = "default") {
             client.soTimeout = 60_000
 
             // Connect to CDN
-            val remote = Socket()
-            remote.connect(InetSocketAddress(connectIp, connectPort), TCP_CONNECT_TIMEOUT_MS)
+            val remote = UnderlaySockets.createSocket()
+            remote.connect(UnderlaySockets.address(connectIp, connectPort), TCP_CONNECT_TIMEOUT_MS)
             remote.tcpNoDelay = true
             remote.soTimeout = 60_000
 
@@ -571,7 +573,7 @@ class SniFragmentForwarder(private val instanceId: String = "default") {
             try {
                 val ss = ServerSocket()
                 ss.reuseAddress = true
-                ss.bind(InetSocketAddress(host, port))
+                ss.bind(java.net.InetSocketAddress(host, port))
                 return ss
             } catch (e: Exception) {
                 if (attempt < BIND_MAX_RETRIES - 1) {

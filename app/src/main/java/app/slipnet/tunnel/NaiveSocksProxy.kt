@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import com.jcraft.jsch.Proxy
 import com.jcraft.jsch.SocketFactory
@@ -49,8 +51,8 @@ class NaiveSocksProxy(
         val sock = if (socketFactory != null) {
             socketFactory.createSocket(proxyHost, proxyPort) as Socket
         } else {
-            Socket().apply {
-                val addr = InetSocketAddress(proxyHost, proxyPort)
+            UnderlaySockets.createSocket().apply {
+                val addr = UnderlaySockets.address(proxyHost, proxyPort)
                 connect(addr, if (timeout > 0) timeout else 15000)
             }
         }

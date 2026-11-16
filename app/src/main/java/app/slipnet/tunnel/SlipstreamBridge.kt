@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import android.net.VpnService
 import app.slipnet.util.AppLog as Log
 
@@ -56,13 +58,13 @@ object SlipstreamBridge {
      */
     @JvmStatic
     fun protectSocket(fd: Int): Boolean {
-        if (proxyOnlyMode) return true // No VPN interface — protection not needed
+        if (proxyOnlyMode) return app.slipnet.network.CellularSocketBinding.bind(fd)
         val service = vpnServiceRef
         if (service == null) {
             Log.e(TAG, "Cannot protect socket: VpnService not available")
             return false
         }
-        val result = service.protect(fd)
+        val result = service.protect(fd) && app.slipnet.network.CellularSocketBinding.bind(fd)
         Log.d(TAG, "Protected socket fd=$fd, result=$result")
         return result
     }
@@ -132,7 +134,10 @@ object SlipstreamBridge {
 
             val result = nativeStartSlipstreamClient(
                 domain = domain,
-                resolverHosts = resolvers.map { it.host }.toTypedArray(),
+                resolverHosts = resolvers.map {
+                    if (app.slipnet.network.CellularSocketBinding.isEnabled)
+                        UnderlaySockets.resolve(it.host).hostAddress!! else it.host
+                }.toTypedArray(),
                 resolverPorts = resolvers.map { it.port }.toIntArray(),
                 resolverAuthoritative = resolvers.map { it.authoritative }.toBooleanArray(),
                 listenPort = actualPort,
@@ -209,7 +214,10 @@ object SlipstreamBridge {
 
             val result = nativeStartSlipstreamClient(
                 domain = domain,
-                resolverHosts = resolvers.map { it.host }.toTypedArray(),
+                resolverHosts = resolvers.map {
+                    if (app.slipnet.network.CellularSocketBinding.isEnabled)
+                        UnderlaySockets.resolve(it.host).hostAddress!! else it.host
+                }.toTypedArray(),
                 resolverPorts = resolvers.map { it.port }.toIntArray(),
                 resolverAuthoritative = resolvers.map { it.authoritative }.toBooleanArray(),
                 listenPort = alt,
@@ -297,8 +305,8 @@ object SlipstreamBridge {
 
         // Verify the port is actually listening
         return try {
-            java.net.Socket().use { socket ->
-                socket.connect(java.net.InetSocketAddress("127.0.0.1", currentPort), 1000)
+            UnderlaySockets.createSocket().use { socket ->
+                socket.connect(UnderlaySockets.address("127.0.0.1", currentPort), 1000)
                 true
             }
         } catch (e: Exception) {

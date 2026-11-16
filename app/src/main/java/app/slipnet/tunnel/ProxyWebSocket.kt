@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import com.jcraft.jsch.Proxy
 import com.jcraft.jsch.SocketFactory
@@ -77,8 +79,8 @@ class ProxyWebSocket(
         val timeoutMs = if (timeout > 0) timeout else CONNECT_TIMEOUT_MS
 
         // Step 1: TCP connect
-        val rawSocket = Socket().apply {
-            connect(InetSocketAddress(wsHost, wsPort), timeoutMs)
+        val rawSocket = UnderlaySockets.createSocket().apply {
+            connect(UnderlaySockets.address(wsHost, wsPort), timeoutMs)
             tcpNoDelay = true
         }
 

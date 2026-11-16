@@ -1,5 +1,7 @@
 package app.slipnet.data.repository
 
+import app.slipnet.network.UnderlaySockets
+
 import android.os.ParcelFileDescriptor
 import app.slipnet.util.AppLog as Log
 import app.slipnet.data.local.datastore.PreferencesDataStore
@@ -114,7 +116,7 @@ class VpnRepositoryImpl @Inject constructor(
 
             // Fall back to system resolver
             return try {
-                java.net.InetAddress.getByName(host).hostAddress ?: host
+                UnderlaySockets.resolve(host).hostAddress ?: host
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to resolve '$host' to IP, passing through", e)
                 host
@@ -128,8 +130,8 @@ class VpnRepositoryImpl @Inject constructor(
         private fun resolveViaUdp(hostname: String, dnsServer: String, timeoutMs: Int = 5000): String? {
             val id = (Math.random() * 65535).toInt().toShort()
             val query = buildDnsQuery(id, hostname)
-            val serverAddr = java.net.InetAddress.getByName(dnsServer)
-            val socket = java.net.DatagramSocket()
+            val serverAddr = UnderlaySockets.resolve(dnsServer)
+            val socket = UnderlaySockets.datagram()
             try {
                 socket.soTimeout = timeoutMs
                 val request = java.net.DatagramPacket(query, query.size, serverAddr, 53)
@@ -759,8 +761,8 @@ class VpnRepositoryImpl @Inject constructor(
     private fun tryTcpConnect(host: String, port: Int, timeoutMs: Int): Boolean {
         var socket: java.net.Socket? = null
         return try {
-            socket = java.net.Socket()
-            socket.connect(java.net.InetSocketAddress(host, port), timeoutMs)
+            socket = UnderlaySockets.createSocket()
+            socket.connect(UnderlaySockets.address(host, port), timeoutMs)
             true
         } catch (_: Exception) {
             false

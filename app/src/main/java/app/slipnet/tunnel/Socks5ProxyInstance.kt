@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import java.io.BufferedOutputStream
 import java.io.ByteArrayInputStream
@@ -185,7 +187,7 @@ class Socks5ProxyInstance(val instanceId: String = "default") {
         var lastException: java.net.BindException? = null
         repeat(BIND_MAX_RETRIES) { attempt ->
             try {
-                ss.bind(InetSocketAddress(host, port))
+                ss.bind(java.net.InetSocketAddress(host, port))
                 if (attempt > 0) Log.i(TAG, "Port $port bound after ${attempt + 1} attempts")
                 return ss
             } catch (e: java.net.BindException) {
@@ -508,8 +510,8 @@ class Socks5ProxyInstance(val instanceId: String = "default") {
     ) {
         val remoteSocket: Socket
         try {
-            remoteSocket = Socket()
-            remoteSocket.connect(InetSocketAddress(remoteHost, remotePort), TCP_CONNECT_TIMEOUT_MS)
+            remoteSocket = UnderlaySockets.createSocket()
+            remoteSocket.connect(UnderlaySockets.address(remoteHost, remotePort), TCP_CONNECT_TIMEOUT_MS)
             remoteSocket.tcpNoDelay = true
         } catch (e: Exception) {
             logd("CONNECT: failed to connect to remote SOCKS5 proxy: ${e.message}")
@@ -740,8 +742,8 @@ class Socks5ProxyInstance(val instanceId: String = "default") {
         var socket: Socket? = null
         try {
             // Connect to remote SOCKS5 proxy
-            socket = Socket()
-            socket.connect(InetSocketAddress(remoteHost, remotePort), DNS_TIMEOUT_MS)
+            socket = UnderlaySockets.createSocket()
+            socket.connect(UnderlaySockets.address(remoteHost, remotePort), DNS_TIMEOUT_MS)
             socket.soTimeout = DNS_TIMEOUT_MS
             socket.tcpNoDelay = true
 

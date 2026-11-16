@@ -1,5 +1,7 @@
 package app.slipnet.tunnel
 
+import app.slipnet.network.UnderlaySockets
+
 import app.slipnet.util.AppLog as Log
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
@@ -235,14 +237,14 @@ object VlessBridge {
         var raw: Socket? = null
         var tunnel: Socket? = null
         return try {
-            val sock = Socket()
+            val sock = UnderlaySockets.createSocket()
             raw = sock
             sock.tcpNoDelay = true
             val target = if (fragmentEnabled) {
                 val fragPort = (serverSocket?.localPort ?: 0) + 1
-                InetSocketAddress("127.0.0.1", fragPort)
+                UnderlaySockets.address("127.0.0.1", fragPort)
             } else {
-                InetSocketAddress(cdnIp, cdnPort)
+                UnderlaySockets.address(cdnIp, cdnPort)
             }
             sock.connect(target, TCP_CONNECT_TIMEOUT_MS)
             sock.soTimeout = timeoutMs
@@ -391,11 +393,11 @@ object VlessBridge {
         val raw: Socket
         if (fragmentEnabled) {
             val fragmentPort = (serverSocket?.localPort ?: 0) + 1
-            raw = Socket()
-            raw.connect(InetSocketAddress("127.0.0.1", fragmentPort), TCP_CONNECT_TIMEOUT_MS)
+            raw = UnderlaySockets.createSocket()
+            raw.connect(UnderlaySockets.address("127.0.0.1", fragmentPort), TCP_CONNECT_TIMEOUT_MS)
         } else {
-            raw = Socket()
-            raw.connect(InetSocketAddress(cdnIp, cdnPort), TCP_CONNECT_TIMEOUT_MS)
+            raw = UnderlaySockets.createSocket()
+            raw.connect(UnderlaySockets.address(cdnIp, cdnPort), TCP_CONNECT_TIMEOUT_MS)
         }
         raw.tcpNoDelay = true
 
@@ -929,7 +931,7 @@ object VlessBridge {
             try {
                 val ss = ServerSocket()
                 ss.reuseAddress = true
-                ss.bind(InetSocketAddress(host, port))
+                ss.bind(java.net.InetSocketAddress(host, port))
                 return ss
             } catch (e: Exception) {
                 if (attempt < BIND_MAX_RETRIES - 1) {
